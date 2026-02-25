@@ -17,8 +17,8 @@ export const PRIORITY_CONFIG: Record<ComplaintPriority, { label: string; classNa
 
 export const STATUS_CONFIG: Record<ComplaintStatus, { label: string; className: string }> = {
   pending: { label: "Pending", className: "bg-muted text-muted-foreground" },
-  in_progress: { label: "In Progress", className: "bg-info text-info-foreground" },
-  resolved: { label: "Resolved", className: "bg-success text-success-foreground" },
+  in_progress: { label: "Processing", className: "bg-info text-info-foreground" },
+  resolved: { label: "Done", className: "bg-success text-success-foreground" },
 };
 
 export const SAMPLE_COMPLAINTS: Complaint[] = [

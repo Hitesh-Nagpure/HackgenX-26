@@ -9,6 +9,8 @@ import { MapPin, Clock, BarChart3, AlertTriangle, CheckCircle, Loader2 } from "l
 import { useToast } from "@/hooks/use-toast";
 import { ComplaintStatus, ComplaintPriority } from "@/data/types";
 import { supabase } from "@/integrations/supabase/client";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { User } from "lucide-react";
 
 const CHART_COLORS = [
   "hsl(168, 80%, 28%)",
@@ -33,12 +35,20 @@ interface DbComplaint {
   updated_at: string;
 }
 
+interface WorkerProfile {
+  id: string;
+  full_name: string;
+  avatar_url: string | null;
+}
+
 const AdminDashboard = () => {
   const { toast } = useToast();
   const [complaints, setComplaints] = useState<DbComplaint[]>([]);
+  const [workers, setWorkers] = useState<WorkerProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [assigning, setAssigning] = useState<string | null>(null);
 
   const fetchComplaints = async () => {
     const { data, error } = await supabase
@@ -53,7 +63,37 @@ const AdminDashboard = () => {
     setLoading(false);
   };
 
-  useEffect(() => { fetchComplaints(); }, []);
+  const fetchWorkers = async () => {
+    // First get worker IDs from user_roles
+    const { data: roleData, error: roleError } = await supabase
+      .from("user_roles")
+      .select("user_id")
+      .eq("role", "worker");
+
+    if (roleError) {
+      console.error("Error fetching worker roles:", roleError);
+      return;
+    }
+
+    if (roleData && roleData.length > 0) {
+      const workerIds = roleData.map(r => r.user_id);
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, full_name, avatar_url")
+        .in("id", workerIds);
+
+      if (profileError) {
+        toast({ title: "Error loading workers", description: profileError.message, variant: "destructive" });
+      } else {
+        setWorkers(profileData || []);
+      }
+    }
+  };
+
+  useEffect(() => {
+    fetchComplaints();
+    fetchWorkers();
+  }, []);
 
   const categoryData = CATEGORIES.map((cat) => ({
     name: cat.label,
@@ -62,8 +102,8 @@ const AdminDashboard = () => {
 
   const statusData = [
     { name: "Pending", value: complaints.filter((c) => c.status === "pending").length },
-    { name: "In Progress", value: complaints.filter((c) => c.status === "in_progress").length },
-    { name: "Resolved", value: complaints.filter((c) => c.status === "resolved").length },
+    { name: "Processing", value: complaints.filter((c) => c.status === "in_progress").length },
+    { name: "Done", value: complaints.filter((c) => c.status === "resolved").length },
   ];
 
   const priorityCounts = {
@@ -92,6 +132,27 @@ const AdminDashboard = () => {
     }
   };
 
+  const assignWorker = async (complaintId: string, workerId: string) => {
+    setAssigning(complaintId);
+    const { error } = await supabase
+      .from("complaints")
+      .update({ assigned_to: workerId, status: "in_progress" })
+      .eq("id", complaintId);
+
+    setAssigning(null);
+    if (error) {
+      toast({ title: "Assignment failed", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Worker Assigned", description: "Task has been assigned and moved to processing." });
+      fetchComplaints();
+    }
+  };
+
+  const getWorkerName = (id: string | null) => {
+    if (!id) return "Unassigned";
+    return workers.find(w => w.id === id)?.full_name || "Unknown Worker";
+  };
+
   const getCategoryLabel = (cat: string) => CATEGORIES.find((c) => c.value === cat)?.label ?? cat;
   const getCategoryIcon = (cat: string) => CATEGORIES.find((c) => c.value === cat)?.icon ?? "📋";
 
@@ -115,8 +176,8 @@ const AdminDashboard = () => {
         {[
           { label: "Total Complaints", value: complaints.length, icon: BarChart3, color: "text-primary" },
           { label: "High Priority", value: priorityCounts.high, icon: AlertTriangle, color: "text-destructive" },
-          { label: "In Progress", value: statusData[1].value, icon: Loader2, color: "text-info" },
-          { label: "Resolved", value: statusData[2].value, icon: CheckCircle, color: "text-success" },
+          { label: "Processing", value: statusData[1].value, icon: Loader2, color: "text-info" },
+          { label: "Done", value: statusData[2].value, icon: CheckCircle, color: "text-success" },
         ].map((card, i) => (
           <motion.div
             key={card.label}
@@ -178,8 +239,8 @@ const AdminDashboard = () => {
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="in_progress">In Progress</SelectItem>
-                <SelectItem value="resolved">Resolved</SelectItem>
+                <SelectItem value="in_progress">Processing</SelectItem>
+                <SelectItem value="resolved">Done</SelectItem>
               </SelectContent>
             </Select>
             <Select value={filterCategory} onValueChange={setFilterCategory}>
@@ -206,7 +267,7 @@ const AdminDashboard = () => {
               transition={{ delay: i * 0.03 }}
               className="rounded-xl border border-border bg-card p-5 shadow-card"
             >
-              <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="flex flex-wrap items-start justify-between gap-6">
                 <div className="flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-xs text-muted-foreground">{complaint.id.slice(0, 8)}</span>
@@ -234,14 +295,52 @@ const AdminDashboard = () => {
                     </span>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  {complaint.status === "pending" && (
-                    <Button size="sm" variant="outline" onClick={() => updateStatus(complaint.id, "in_progress")}>Start Work</Button>
-                  )}
-                  {complaint.status === "in_progress" && (
-                    <Button size="sm" className="bg-success text-success-foreground hover:bg-success/90" onClick={() => updateStatus(complaint.id, "resolved")}>Resolve</Button>
-                  )}
-                  {complaint.status === "resolved" && <span className="text-xs text-success">✓ Done</span>}
+
+                <div className="flex flex-col gap-3 min-w-[200px]">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Assigned To</p>
+                    <Select
+                      disabled={complaint.status === "resolved" || assigning === complaint.id}
+                      value={complaint.assigned_to || "unassigned"}
+                      onValueChange={(val) => val !== "unassigned" && assignWorker(complaint.id, val)}
+                    >
+                      <SelectTrigger className="h-9 w-full">
+                        <SelectValue>
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-5 w-5">
+                              <AvatarImage src={workers.find(w => w.id === complaint.assigned_to)?.avatar_url || ""} />
+                              <AvatarFallback><User className="h-3 w-3" /></AvatarFallback>
+                            </Avatar>
+                            <span className="truncate">{getWorkerName(complaint.assigned_to)}</span>
+                          </div>
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unassigned">Unassigned</SelectItem>
+                        {workers.map((worker) => (
+                          <SelectItem key={worker.id} value={worker.id}>
+                            <div className="flex items-center gap-2">
+                              {worker.full_name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex gap-2">
+                    {complaint.status === "pending" && (
+                      <Button size="sm" variant="outline" className="flex-1" onClick={() => updateStatus(complaint.id, "in_progress")}>Mark Processing</Button>
+                    )}
+                    {complaint.status === "in_progress" && (
+                      <Button size="sm" className="bg-success text-success-foreground hover:bg-success/90 flex-1" onClick={() => updateStatus(complaint.id, "resolved")}>Mark Done</Button>
+                    )}
+                    {complaint.status === "resolved" && (
+                      <div className="flex items-center justify-center py-1 w-full text-xs font-semibold text-success bg-success/10 rounded-md">
+                        ✓ Done
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </motion.div>
