@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { SAMPLE_COMPLAINTS, CATEGORIES, PRIORITY_CONFIG, STATUS_CONFIG } from "@/data/mockData";
+import { CATEGORIES, PRIORITY_CONFIG, STATUS_CONFIG } from "@/data/mockData";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { MapPin, Clock, BarChart3, AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { ComplaintStatus } from "@/data/types";
+import { ComplaintStatus, ComplaintPriority } from "@/data/types";
+import { supabase } from "@/integrations/supabase/client";
 
 const CHART_COLORS = [
   "hsl(168, 80%, 28%)",
@@ -18,13 +19,42 @@ const CHART_COLORS = [
   "hsl(280, 60%, 50%)",
 ];
 
+interface DbComplaint {
+  id: string;
+  user_id: string;
+  category: string;
+  description: string;
+  priority: string;
+  status: string;
+  location_address: string | null;
+  image_url: string | null;
+  assigned_to: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 const AdminDashboard = () => {
   const { toast } = useToast();
-  const [complaints, setComplaints] = useState(SAMPLE_COMPLAINTS);
+  const [complaints, setComplaints] = useState<DbComplaint[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
 
-  // Analytics data
+  const fetchComplaints = async () => {
+    const { data, error } = await supabase
+      .from("complaints")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) {
+      toast({ title: "Error loading complaints", description: error.message, variant: "destructive" });
+    } else {
+      setComplaints(data || []);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchComplaints(); }, []);
+
   const categoryData = CATEGORIES.map((cat) => ({
     name: cat.label,
     count: complaints.filter((c) => c.category === cat.value).length,
@@ -48,15 +78,30 @@ const AdminDashboard = () => {
     return true;
   });
 
-  const updateStatus = (id: string, newStatus: ComplaintStatus) => {
-    setComplaints((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status: newStatus, updatedAt: new Date().toISOString() } : c))
-    );
-    toast({ title: "Status Updated", description: `Complaint ${id} → ${STATUS_CONFIG[newStatus].label}` });
+  const updateStatus = async (id: string, newStatus: ComplaintStatus) => {
+    const { error } = await supabase
+      .from("complaints")
+      .update({ status: newStatus })
+      .eq("id", id);
+
+    if (error) {
+      toast({ title: "Update failed", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Status Updated", description: `Complaint → ${STATUS_CONFIG[newStatus].label}` });
+      fetchComplaints();
+    }
   };
 
   const getCategoryLabel = (cat: string) => CATEGORIES.find((c) => c.value === cat)?.label ?? cat;
   const getCategoryIcon = (cat: string) => CATEGORIES.find((c) => c.value === cat)?.icon ?? "📋";
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="container py-10">
@@ -111,16 +156,7 @@ const AdminDashboard = () => {
           <div className="mt-4 h-64">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie
-                  data={statusData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={55}
-                  outerRadius={90}
-                  paddingAngle={4}
-                  dataKey="value"
-                  label={({ name, value }) => `${name}: ${value}`}
-                >
+                <Pie data={statusData} cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={4} dataKey="value" label={({ name, value }) => `${name}: ${value}`}>
                   {statusData.map((_, idx) => (
                     <Cell key={idx} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
                   ))}
@@ -138,9 +174,7 @@ const AdminDashboard = () => {
           <h2 className="font-display text-xl font-bold text-foreground">All Complaints</h2>
           <div className="ml-auto flex gap-3">
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-36">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
+              <SelectTrigger className="w-36"><SelectValue placeholder="Status" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
@@ -149,15 +183,11 @@ const AdminDashboard = () => {
               </SelectContent>
             </Select>
             <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger className="w-44">
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
+              <SelectTrigger className="w-44"><SelectValue placeholder="Category" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
                 {CATEGORIES.map((cat) => (
-                  <SelectItem key={cat.value} value={cat.value}>
-                    {cat.icon} {cat.label}
-                  </SelectItem>
+                  <SelectItem key={cat.value} value={cat.value}>{cat.icon} {cat.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -165,6 +195,9 @@ const AdminDashboard = () => {
         </div>
 
         <div className="mt-5 space-y-3">
+          {filtered.length === 0 && (
+            <p className="py-8 text-center text-muted-foreground">No complaints found.</p>
+          )}
           {filtered.map((complaint, i) => (
             <motion.div
               key={complaint.id}
@@ -176,42 +209,39 @@ const AdminDashboard = () => {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-xs text-muted-foreground">{complaint.id}</span>
-                    <Badge className={PRIORITY_CONFIG[complaint.priority].className}>
-                      {PRIORITY_CONFIG[complaint.priority].label}
-                    </Badge>
-                    <Badge className={STATUS_CONFIG[complaint.status].className}>
-                      {STATUS_CONFIG[complaint.status].label}
-                    </Badge>
+                    <span className="font-mono text-xs text-muted-foreground">{complaint.id.slice(0, 8)}</span>
+                    {PRIORITY_CONFIG[complaint.priority as ComplaintPriority] && (
+                      <Badge className={PRIORITY_CONFIG[complaint.priority as ComplaintPriority].className}>
+                        {PRIORITY_CONFIG[complaint.priority as ComplaintPriority].label}
+                      </Badge>
+                    )}
+                    {STATUS_CONFIG[complaint.status as ComplaintStatus] && (
+                      <Badge className={STATUS_CONFIG[complaint.status as ComplaintStatus].className}>
+                        {STATUS_CONFIG[complaint.status as ComplaintStatus].label}
+                      </Badge>
+                    )}
                   </div>
                   <h3 className="mt-2 font-display text-base font-semibold text-card-foreground">
                     {getCategoryIcon(complaint.category)} {getCategoryLabel(complaint.category)}
                   </h3>
                   <p className="mt-1 text-sm text-muted-foreground">{complaint.description}</p>
                   <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                    {complaint.location_address && (
+                      <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {complaint.location_address}</span>
+                    )}
                     <span className="flex items-center gap-1">
-                      <MapPin className="h-3 w-3" /> {complaint.location.address}
+                      <Clock className="h-3 w-3" /> {new Date(complaint.created_at).toLocaleDateString()}
                     </span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" /> {new Date(complaint.createdAt).toLocaleDateString()}
-                    </span>
-                    {complaint.assignedTo && <span>Assigned: {complaint.assignedTo}</span>}
                   </div>
                 </div>
                 <div className="flex gap-2">
                   {complaint.status === "pending" && (
-                    <Button size="sm" variant="outline" onClick={() => updateStatus(complaint.id, "in_progress")}>
-                      Start Work
-                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => updateStatus(complaint.id, "in_progress")}>Start Work</Button>
                   )}
                   {complaint.status === "in_progress" && (
-                    <Button size="sm" className="bg-success text-success-foreground hover:bg-success/90" onClick={() => updateStatus(complaint.id, "resolved")}>
-                      Resolve
-                    </Button>
+                    <Button size="sm" className="bg-success text-success-foreground hover:bg-success/90" onClick={() => updateStatus(complaint.id, "resolved")}>Resolve</Button>
                   )}
-                  {complaint.status === "resolved" && (
-                    <span className="text-xs text-success">✓ Done</span>
-                  )}
+                  {complaint.status === "resolved" && <span className="text-xs text-success">✓ Done</span>}
                 </div>
               </div>
             </motion.div>
