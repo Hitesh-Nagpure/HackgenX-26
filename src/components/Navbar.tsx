@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Shield, Menu, X, LogOut, LogIn } from "lucide-react";
+import { Menu, X, LogOut, LogIn } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "./AuthProvider";
@@ -11,31 +11,41 @@ const Navbar = () => {
 
   const navItems = [
     { label: "Home", path: "/", show: true },
-    { label: "File Complaint", path: "/complaint/new", show: !!user },
-    { label: "My Complaints", path: "/complaints", show: !!user },
+    { label: "Civic Leaderboard", path: "/leaderboard", show: true },
+    { label: "Public Billboard", path: "/billboard", show: true },
+    { label: "File Complaint", path: "/complaint/new", show: !hasRole("admin") },
+    { label: "My Complaints", path: "/complaints", show: !!user && !hasRole("admin") },
+    { label: "Worker Portal", path: "/worker", show: hasRole("worker") },
     { label: "Admin", path: "/admin", show: hasRole("admin") },
   ].filter((item) => item.show);
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-md">
       <div className="container flex h-16 items-center justify-between">
-        <Link to="/" className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-            <Shield className="h-5 w-5 text-primary-foreground" />
+        <Link to="/" className="flex items-center gap-3 group">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden shadow-lg shadow-primary/20 group-hover:scale-110 transition-transform">
+            <img
+              src="/Nagar_Niti_Logo.png"
+              alt="Nagar Niti Logo"
+              className="h-full w-full object-cover"
+            />
           </div>
-          <span className="font-display text-xl font-bold text-foreground">Nagar Niti</span>
+          <div className="flex flex-col">
+            <span className="font-display text-xl font-bold text-foreground leading-none">NagarNiti</span>
+            <span className="text-[10px] uppercase tracking-tighter text-muted-foreground font-bold italic">Urban Harmony</span>
+          </div>
         </Link>
+
 
         <nav className="hidden items-center gap-1 md:flex">
           {navItems.map((item) => (
             <Link
               key={item.path}
               to={item.path}
-              className={`rounded-md px-3.5 py-2 text-sm font-medium transition-colors ${
-                location.pathname === item.path
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
+              className={`rounded-md px-3.5 py-2 text-sm font-medium transition-colors ${location.pathname === item.path
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
             >
               {item.label}
             </Link>
@@ -65,11 +75,10 @@ const Navbar = () => {
               key={item.path}
               to={item.path}
               onClick={() => setMobileOpen(false)}
-              className={`block rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
-                location.pathname === item.path
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted"
-              }`}
+              className={`block rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${location.pathname === item.path
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted"
+                }`}
             >
               {item.label}
             </Link>

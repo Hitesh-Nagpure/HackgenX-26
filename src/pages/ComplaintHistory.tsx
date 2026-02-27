@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { CATEGORIES, PRIORITY_CONFIG, STATUS_CONFIG } from "@/data/mockData";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Clock, Loader2 } from "lucide-react";
+import { MapPin, Clock, Loader2, History } from "lucide-react";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/AuthProvider";
 import { ComplaintPriority, ComplaintStatus } from "@/data/types";
@@ -51,10 +52,23 @@ const ComplaintHistory = () => {
 
   return (
     <div className="container py-10">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="font-display text-3xl font-bold text-foreground">Complaint History</h1>
-        <p className="mt-2 text-muted-foreground">Track all your submitted complaints and their status.</p>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-8 p-8 rounded-[2rem] bg-primary text-white relative overflow-hidden shadow-2xl"
+      >
+        <div className="absolute top-0 right-0 p-12 opacity-10">
+          <History className="h-48 w-48 text-white" />
+        </div>
+        <div className="relative z-10">
+          <Badge className="mb-4 bg-white/20 text-white border-white/30 backdrop-blur-sm">Citizen Portal</Badge>
+          <h1 className="font-display text-4xl font-black text-white">Your Impact History</h1>
+          <p className="mt-3 text-white/80 max-w-xl text-lg">
+            Every report you file contributes to a better city. Track the progress of your contributions here.
+          </p>
+        </div>
       </motion.div>
+
 
       {complaints.length === 0 ? (
         <div className="mt-12 text-center text-muted-foreground">

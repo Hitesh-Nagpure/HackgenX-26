@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Shield, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,8 +39,8 @@ const Login = () => {
         className="w-full max-w-md rounded-2xl border border-border bg-card p-8 shadow-elevated"
       >
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary">
-            <Shield className="h-7 w-7 text-primary-foreground" />
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl overflow-hidden">
+            <img src="/Nagar_Niti_Logo.png" alt="Nagar Niti Logo" className="h-full w-full object-cover" />
           </div>
           <h1 className="font-display text-2xl font-bold text-card-foreground">Welcome Back</h1>
           <p className="mt-1 text-sm text-muted-foreground">Sign in to Nagar Niti</p>
