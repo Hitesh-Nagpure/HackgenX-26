@@ -2,7 +2,6 @@
 #include <HTTPClient.h>
 #include <WiFi.h>
 
-
 // WiFi Credentials
 const char *ssid = "YOUR_WIFI_SSID";
 const char *password = "YOUR_WIFI_PASSWORD";

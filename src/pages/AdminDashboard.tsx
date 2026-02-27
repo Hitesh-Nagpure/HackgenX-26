@@ -111,16 +111,23 @@ const AdminDashboard = () => {
         (payload) => {
           console.log('New bin alert received!', payload);
 
-          // Play danger sound
-          const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+          // Play disastrous emergency siren
+          const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/952/952-preview.mp3');
+          audio.loop = true;
           audio.play().catch(e => console.error("Error playing sound:", e));
+
+          // Stop sound after 5 seconds as requested
+          setTimeout(() => {
+            audio.pause();
+            audio.currentTime = 0;
+          }, 5000);
 
           // Show Toast
           toast({
-            title: "🚨 SMART BIN FULL ALERT!",
-            description: `Bin ${payload.new.bin_id} at ${payload.new.location} is FULL and needs attention!`,
+            title: "🚨 DISASTER ALERT: BIN FULL!",
+            description: `Bin ${payload.new.bin_id} at ${payload.new.location} is OVERFLOWING! Immediate action required.`,
             variant: "destructive",
-            duration: 10000,
+            duration: 5000,
           });
         }
       )
