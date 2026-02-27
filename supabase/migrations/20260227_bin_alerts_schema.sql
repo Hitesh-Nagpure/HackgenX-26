@@ -21,5 +21,8 @@ CREATE POLICY "Everyone can view bin alerts" ON public.bin_alerts
   FOR SELECT TO anon, authenticated
   USING (true);
 
+-- Enable Replication for real-time alerts
+ALTER PUBLICATION supabase_realtime ADD TABLE bin_alerts;
+
 -- Reload PostgREST schema cache
 NOTIFY pgrst, 'reload schema';
